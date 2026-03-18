@@ -1,0 +1,40 @@
+# Node.js
+**/node_modules/
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/.pnpm-debug.log*
+
+# Environment Variables
+**/.env
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
+
+# Build
+**/dist/
+**/.output/
+
+# IDE / Editor
+**/.vscode/
+**/.idea/
+**/*.suo
+**/*.ntvs*
+**/*.njsproj
+**/*.sln
+**/*.sw?
+
+# OS
+**/.DS_Store
+**/Thumbs.db
+
+# Project Specific
+**/backend/temp/
+**/backend/*.log
+**/backend/*_output.txt
+**/backend/debug_*.html
+**/backend/debug_*.png
+**/backend/questions_dump.json
+**/frontend/vite_*.log
+**/frontend/vite_error.log

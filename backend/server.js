@@ -1,0 +1,283 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const pdfkit = require('pdfkit');
+const fs = require('fs');
+const path = require('path');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
+const Question = require('./models/Question');
+const User = require('./models/User');
+require('dotenv').config();
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Email Configuration
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/neet-pyq')
+    .then(() => console.log('MongoDB Connected'))
+    .catch(err => console.log(err));
+
+// Auth Routes
+app.post('/api/auth/register', async (req, res) => {
+    const { name, email, password } = req.body;
+    try {
+        let user = await User.findOne({ email });
+        if (user) return res.status(400).json({ error: 'User already exists' });
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpire = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        user = new User({
+            name,
+            email,
+            password: hashedPassword,
+            otp,
+            otpExpire
+        });
+
+        await user.save();
+
+        const emailHtml = `
+            <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <h2 style="color: #4A90E2; text-align: center;">Verify Your Email</h2>
+                <p>Hello ${name},</p>
+                <p>Thank you for registering at NEET PYQ Maker. Use the code below to verify your email address. This code is valid for 10 minutes.</p>
+                <div style="background: #f4f4f4; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #333; margin: 20px 0; border-radius: 5px;">
+                    ${otp}
+                </div>
+                <p>If you did not request this, please ignore this email.</p>
+            </div>
+        `;
+
+        if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: `${otp} is your NEET PYQ Maker verification code`,
+                html: emailHtml
+            };
+            await transporter.sendMail(mailOptions);
+            res.status(201).json({ message: 'User registered. Please check your email for the OTP.' });
+        } else {
+            console.log('OTP for', email, ':', otp);
+            res.status(201).json({ 
+                message: 'Registration successful!',
+                otp: otp // Sending back for development convenience
+            });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/auth/verify-otp', async (req, res) => {
+    const { email, otp } = req.body;
+    try {
+        const user = await User.findOne({ email });
+        if (!user) return res.status(400).json({ error: 'User not found' });
+        if (user.isVerified) return res.status(400).json({ error: 'Email already verified' });
+        
+        if (user.otp !== otp) return res.status(400).json({ error: 'Invalid OTP' });
+        if (user.otpExpire < new Date()) return res.status(400).json({ error: 'OTP expired' });
+
+        user.isVerified = true;
+        user.otp = undefined;
+        user.otpExpire = undefined;
+        await user.save();
+
+        res.json({ message: 'Email verified successfully! You can now login.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/auth/resend-otp', async (req, res) => {
+    const { email } = req.body;
+    try {
+        const user = await User.findOne({ email });
+        if (!user) return res.status(400).json({ error: 'User not found' });
+        if (user.isVerified) return res.status(400).json({ error: 'Email already verified' });
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        user.otp = otp;
+        user.otpExpire = new Date(Date.now() + 10 * 60 * 1000);
+        await user.save();
+
+        const emailHtml = `
+            <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <h2 style="color: #4A90E2; text-align: center;">New Verification Code</h2>
+                <p>Hello ${user.name},</p>
+                <p>You requested a new verification code. Use the code below to verify your email address. This code is valid for 10 minutes.</p>
+                <div style="background: #f4f4f4; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #333; margin: 20px 0; border-radius: 5px;">
+                    ${otp}
+                </div>
+            </div>
+        `;
+
+        if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: `${otp} is your new NEET PYQ Maker code`,
+                html: emailHtml
+            };
+            await transporter.sendMail(mailOptions);
+        } else {
+            console.log('New OTP for', email, ':', otp);
+        }
+
+        res.json({ message: 'New OTP sent to your email.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        const user = await User.findOne({ email });
+        if (!user) return res.status(400).json({ error: 'Invalid credentials' });
+        if (!user.isVerified) return res.status(400).json({ error: 'Please verify your email first' });
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
+
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+        res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Subjects list
+const subjects = ['Physics', 'Chemistry', 'Biology'];
+
+// Chapters data
+const chaptersData = {
+    'Physics': [
+        'Physical World', 'Units and Measurements', 'Motion in a Straight Line', 'Motion in a Plane',
+        'Laws of Motion', 'Work Energy and Power', 'System of Particles and Rotational Motion', 'Gravitation',
+        'Mechanical Properties of Solids', 'Mechanical Properties of Fluids', 'Thermal Properties of Matter',
+        'Thermodynamics', 'Kinetic Theory', 'Oscillations', 'Waves', 'Electric Charges and Fields',
+        'Electrostatic Potential and Capacitance', 'Current Electricity', 'Moving Charges and Magnetism',
+        'Magnetism and Matter', 'Electromagnetic Induction', 'Alternating Current', 'Electromagnetic Waves',
+        'Ray Optics and Optical Instruments', 'Wave Optics', 'Dual Nature of Radiation and Matter',
+        'Atoms', 'Nuclei', 'Semiconductor Electronics', 'Communication Systems'
+    ],
+    'Chemistry': [
+        'Some Basic Concepts of Chemistry', 'Structure of Atom', 'States of Matter', 'Chemical Thermodynamics',
+        'Solutions', 'Equilibrium', 'Redox Reactions', 'Chemical Kinetics', 'Surface Chemistry',
+        'Organic Chemistry Basic Principles and Techniques', 'Hydrocarbons', 'Haloalkanes and Haloarenes',
+        'Alcohols Phenols and Ethers', 'Aldehydes Ketones and Carboxylic Acids', 'Amines', 'Biomolecules',
+        'Polymers', 'Chemistry in Everyday Life', 'Classification of Elements and Periodicity',
+        'Chemical Bonding and Molecular Structure', 'Hydrogen', 's-Block Elements', 'p-Block Elements',
+        'd and f Block Elements', 'Coordination Compounds', 'Environmental Chemistry'
+    ],
+    'Biology': [
+        'The Living World', 'Biological Classification', 'Plant Kingdom', 'Morphology of Flowering Plants',
+        'Anatomy of Flowering Plants', 'Plant Growth and Development', 'Cell The Unit of Life',
+        'Biomolecules', 'Cell Cycle and Cell Division', 'Photosynthesis in Higher Plants', 'Respiration in Plants',
+        'Animal Kingdom', 'Structural Organisation in Animals', 'Digestion and Absorption',
+        'Breathing and Exchange of Gases', 'Body Fluids and Circulation', 'Excretory Products and their Elimination',
+        'Locomotion and Movement', 'Neural Control and Coordination', 'Chemical Coordination and Integration',
+        'Reproduction in Organisms', 'Human Reproduction', 'Reproductive Health',
+        'Principles of Inheritance and Variation', 'Molecular Basis of Inheritance',
+        'Biotechnology Principles and Processes', 'Biotechnology and its Applications',
+        'Organisms and Populations', 'Ecosystem', 'Biodiversity and Conservation', 'Environmental Issues'
+    ]
+};
+
+app.get('/api/subjects', (req, res) => res.json(subjects));
+
+app.get('/api/chapters', (req, res) => {
+    const subject = req.query.subject;
+    res.json(chaptersData[subject] || []);
+});
+
+app.post('/api/generate-paper', async (req, res) => {
+    const { subject, chapters, count, difficulty, years } = req.body;
+    
+    let query = { subject };
+    if (chapters && chapters.length > 0) query.chapter = { $in: chapters };
+    if (difficulty) query.difficulty = difficulty;
+    if (years && years.length > 0) query.year = { $in: years };
+
+    try {
+        const questions = await Question.aggregate([
+            { $match: query },
+            { $sample: { size: parseInt(count) || 10 } }
+        ]);
+        res.json(questions);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/generate-pdf', async (req, res) => {
+    const { questions, metadata } = req.body;
+    const doc = new pdfkit();
+    const filename = `neet_paper_${Date.now()}.pdf`;
+    const filepath = path.join(__dirname, 'temp', filename);
+    const keyFilename = `neet_key_${Date.now()}.pdf`;
+    const keyFilepath = path.join(__dirname, 'temp', keyFilename);
+
+    if (!fs.existsSync(path.join(__dirname, 'temp'))) {
+        fs.mkdirSync(path.join(__dirname, 'temp'));
+    }
+
+    const generateDoc = (isKey) => {
+        const pdf = new pdfkit();
+        const stream = fs.createWriteStream(isKey ? keyFilepath : filepath);
+        pdf.pipe(stream);
+
+        pdf.fontSize(20).text('NEET Practice PYQ Paper', { align: 'center' });
+        if (isKey) pdf.text('Answer Key', { align: 'center' });
+        pdf.moveDown();
+        
+        pdf.fontSize(12).text(`Subject: ${metadata.subject}`);
+        pdf.text(`Total Questions: ${questions.length}`);
+        pdf.moveDown();
+
+        questions.forEach((q, index) => {
+            pdf.fontSize(12).text(`${index + 1}. ${q.question}`);
+            if (!isKey) {
+                pdf.text(`A. ${q.optionA}`);
+                pdf.text(`B. ${q.optionB}`);
+                pdf.text(`C. ${q.optionC}`);
+                pdf.text(`D. ${q.optionD}`);
+            } else {
+                pdf.text(`Correct Answer: ${q.correctAnswer}`);
+                if (q.explanation) pdf.text(`Explanation: ${q.explanation}`);
+            }
+            pdf.moveDown();
+        });
+
+        pdf.end();
+        return new Promise(resolve => stream.on('finish', resolve));
+    };
+
+    await Promise.all([generateDoc(false), generateDoc(true)]);
+    res.json({ paperId: filename, keyId: keyFilename });
+});
+
+app.get('/api/download-pdf/:filename', (req, res) => {
+    const filepath = path.join(__dirname, 'temp', req.params.filename);
+    res.download(filepath);
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
