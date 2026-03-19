@@ -102,6 +102,24 @@ const Generator = () => {
     );
   };
 
+  const handleShuffle = () => {
+    const shuffleArray = (array) => [...array].sort(() => Math.random() - 0.5);
+    
+    const shuffled = shuffleArray(generatedQuestions).map(q => {
+      const options = [
+        { key: 'A', value: q.optionA },
+        { key: 'B', value: q.optionB },
+        { key: 'C', value: q.optionC },
+        { key: 'D', value: q.optionD }
+      ];
+      return {
+        ...q,
+        shuffledOptions: shuffleArray(options)
+      };
+    });
+    setGeneratedQuestions(shuffled);
+  };
+
   const stepVariants = {
     hidden: { opacity: 0, x: 20 },
     visible: { opacity: 1, x: 0 },
@@ -282,7 +300,10 @@ const Generator = () => {
                     <div><h2 className="text-3xl font-black">Paper <span className="text-emerald-400">Ready</span></h2><p className="text-slate-400 font-medium">{generatedQuestions.length} Questions Compiled</p></div>
                  </div>
                  <div className="flex flex-wrap gap-4">
-                    <button onClick={() => setStep(3)} className="px-6 py-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-2xl font-bold transition-all text-sm">Re-Configure</button>
+                     <button onClick={() => setStep(3)} className="px-6 py-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-2xl font-bold transition-all text-sm">Re-Configure</button>
+                     <button onClick={handleShuffle} className="flex items-center gap-2 px-6 py-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-2xl font-bold transition-all text-sm text-sky-400">
+                        <Zap className="w-4 h-4" /> Shuffle All
+                     </button>
                     <button onClick={() => setShowAnswers(!showAnswers)} className={`flex items-center gap-3 px-8 py-4 ${showAnswers ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-300'} border border-slate-700 rounded-2xl font-bold transition-all text-sm`}>
                       {showAnswers ? <CheckCircle className="w-5 h-5" /> : <BookOpen className="w-5 h-5 text-sky-400" />}
                       {showAnswers ? 'Hide Answers' : 'Show Answers'}
@@ -318,13 +339,22 @@ const Generator = () => {
                          </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-0 md:ml-18">
-                        {[{ label: 'A', value: q.optionA }, { label: 'B', value: q.optionB }, { label: 'C', value: q.optionC }, { label: 'D', value: q.optionD }].map((opt) => (
-                          <div key={opt.label} className={`p-5 rounded-2xl border transition-all flex items-center gap-4 ${(showAnswers && q.correctAnswer === opt.label) ? 'bg-sky-500/20 border-sky-500/50 text-sky-200' : 'bg-slate-950/30 border-slate-800/50 text-slate-400'}`}>
-                             <span className={`flex-shrink-0 w-10 h-10 rounded-xl border flex items-center justify-center font-black ${(showAnswers && q.correctAnswer === opt.label) ? 'bg-sky-500 border-sky-400 text-white shadow-lg shadow-sky-500/20' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>{opt.label}</span>
-                             <span className="text-lg font-medium">{opt.value}</span>
-                          </div>
-                        ))}
-                      </div>
+                         {(q.shuffledOptions || [
+                           { key: 'A', value: q.optionA },
+                           { key: 'B', value: q.optionB },
+                           { key: 'C', value: q.optionC },
+                           { key: 'D', value: q.optionD }
+                         ]).map((opt, idx) => {
+                           const label = String.fromCharCode(65 + idx);
+                           const isCorrect = q.correctAnswer === opt.key;
+                           return (
+                             <div key={label} className={`p-5 rounded-2xl border transition-all flex items-center gap-4 ${(showAnswers && isCorrect) ? 'bg-sky-500/20 border-sky-500/50 text-sky-200' : 'bg-slate-950/30 border-slate-800/50 text-slate-400'}`}>
+                               <span className={`flex-shrink-0 w-10 h-10 rounded-xl border flex items-center justify-center font-black ${(showAnswers && isCorrect) ? 'bg-sky-500 border-sky-400 text-white shadow-lg shadow-sky-500/20' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>{label}</span>
+                               <span className="text-lg font-medium">{opt.value}</span>
+                             </div>
+                           );
+                         })}
+                       </div>
                       {showAnswers && q.explanation && (
                         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-8 p-8 rounded-2xl bg-sky-500/5 border border-sky-500/20 space-y-3 ml-0 md:ml-18">
                            <div className="flex items-center gap-2 text-sky-400 text-xs font-black uppercase tracking-widest">
