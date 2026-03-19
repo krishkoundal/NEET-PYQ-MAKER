@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, User, ChevronLeft, CheckCircle, Sparkles, Chrome, Facebook, Twitter } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Mail, 
+  Lock, 
+  ChevronLeft, 
+  Sparkles, 
+  User 
+} from 'lucide-react';
+import api from '../api';
 import loginBg from '../assets/login_bg.png';
 
 const Signup = () => {
@@ -32,7 +38,7 @@ const Signup = () => {
     setError('');
     
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/register', formData);
+      const res = await api.post('/auth/register', formData);
       navigate(`/verify-otp?email=${formData.email}`);
     } catch (err) {
       setError(err.response?.data?.error || 'Something went wrong. Please try again.');

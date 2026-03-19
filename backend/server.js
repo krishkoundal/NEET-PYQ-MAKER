@@ -9,10 +9,19 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const Question = require('./models/Question');
 const User = require('./models/User');
+const os = require('os');
 require('dotenv').config();
 
 const app = express();
-app.use(cors());
+
+const corsOptions = {
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Email Configuration
@@ -230,13 +239,14 @@ app.post('/api/generate-paper', async (req, res) => {
 app.post('/api/generate-pdf', async (req, res) => {
     const { questions, metadata } = req.body;
     const doc = new pdfkit();
+    const tempDir = path.join(os.tmpdir(), 'neet-pyq-temp');
     const filename = `neet_paper_${Date.now()}.pdf`;
-    const filepath = path.join(__dirname, 'temp', filename);
+    const filepath = path.join(tempDir, filename);
     const keyFilename = `neet_key_${Date.now()}.pdf`;
-    const keyFilepath = path.join(__dirname, 'temp', keyFilename);
+    const keyFilepath = path.join(tempDir, keyFilename);
 
-    if (!fs.existsSync(path.join(__dirname, 'temp'))) {
-        fs.mkdirSync(path.join(__dirname, 'temp'));
+    if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
     }
 
     const generateDoc = (isKey) => {
@@ -275,8 +285,13 @@ app.post('/api/generate-pdf', async (req, res) => {
 });
 
 app.get('/api/download-pdf/:filename', (req, res) => {
-    const filepath = path.join(__dirname, 'temp', req.params.filename);
-    res.download(filepath);
+    const tempDir = path.join(os.tmpdir(), 'neet-pyq-temp');
+    const filepath = path.join(tempDir, req.params.filename);
+    if (fs.existsSync(filepath)) {
+        res.download(filepath);
+    } else {
+        res.status(404).json({ error: 'File not found' });
+    }
 });
 
 const PORT = process.env.PORT || 5000;

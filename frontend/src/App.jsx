@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
+import api from './api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, 
@@ -28,7 +28,7 @@ import VerifyOTP from './components/VerifyOTP';
 import ProtectedRoute from './components/ProtectedRoute';
 import UserAvatar from './components/UserAvatar';
 
-const API_BASE = 'http://localhost:5000/api';
+// API base is handled by api.js
 
 // Generator Component (Existing App Logic)
 const Generator = () => {
@@ -45,15 +45,16 @@ const Generator = () => {
   });
   const [generatedQuestions, setGeneratedQuestions] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showAnswers, setShowAnswers] = useState(false);
   const [pdfStatus, setPdfStatus] = useState({ loading: false, data: null });
 
   useEffect(() => {
-    axios.get(`${API_BASE}/subjects`).then(res => setSubjects(res.data));
+    api.get('/subjects').then(res => setSubjects(res.data));
   }, []);
 
   useEffect(() => {
     if (selectedSubject) {
-      axios.get(`${API_BASE}/chapters?subject=${selectedSubject}`).then(res => {
+      api.get(`/chapters?subject=${selectedSubject}`).then(res => {
         setChapters(res.data);
         setSelectedChapters([]);
       });
@@ -68,7 +69,7 @@ const Generator = () => {
     setIsGenerating(true);
     setStep(4);
     try {
-      const res = await axios.post(`${API_BASE}/generate-paper`, {
+      const res = await api.post('/generate-paper', {
         subject: selectedSubject,
         chapters: selectedChapters,
         ...config
@@ -84,7 +85,7 @@ const Generator = () => {
   const handleGeneratePDF = async () => {
     setPdfStatus({ ...pdfStatus, loading: true });
     try {
-      const res = await axios.post(`${API_BASE}/generate-pdf`, {
+      const res = await api.post('/generate-pdf', {
         questions: generatedQuestions,
         metadata: { subject: selectedSubject, chapters: selectedChapters }
       });
@@ -282,13 +283,17 @@ const Generator = () => {
                  </div>
                  <div className="flex flex-wrap gap-4">
                     <button onClick={() => setStep(3)} className="px-6 py-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-2xl font-bold transition-all text-sm">Re-Configure</button>
+                    <button onClick={() => setShowAnswers(!showAnswers)} className={`flex items-center gap-3 px-8 py-4 ${showAnswers ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-300'} border border-slate-700 rounded-2xl font-bold transition-all text-sm`}>
+                      {showAnswers ? <CheckCircle className="w-5 h-5" /> : <BookOpen className="w-5 h-5 text-sky-400" />}
+                      {showAnswers ? 'Hide Answers' : 'Show Answers'}
+                    </button>
                     {generatedQuestions.length > 0 && !pdfStatus.data && (
                       <button disabled={pdfStatus.loading} onClick={handleGeneratePDF} className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/20 text-white rounded-2xl font-black hover:scale-[1.02] transition-all disabled:opacity-50">{pdfStatus.loading ? <Clock className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}Export to PDF</button>
                     )}
                     {pdfStatus.data && (
                       <div className="flex gap-4">
-                        <a href={`${API_BASE}/download-pdf/${pdfStatus.data.paperId}`} className="flex items-center gap-3 px-8 py-4 bg-sky-500 shadow-lg shadow-sky-500/20 text-white rounded-2xl font-black hover:scale-[1.02] transition-all"><Download className="w-5 h-5" /> Download Paper</a>
-                        <a href={`${API_BASE}/download-pdf/${pdfStatus.data.keyId}`} className="flex items-center gap-3 px-8 py-4 bg-slate-950 border border-slate-800 text-slate-300 rounded-2xl font-bold hover:bg-slate-900 transition-all">Answer Key</a>
+                        <a href={`${api.defaults.baseURL}/download-pdf/${pdfStatus.data.paperId}`} className="flex items-center gap-3 px-8 py-4 bg-sky-500 shadow-lg shadow-sky-500/20 text-white rounded-2xl font-black hover:scale-[1.02] transition-all"><Download className="w-5 h-5" /> Download Paper</a>
+                        <a href={`${api.defaults.baseURL}/download-pdf/${pdfStatus.data.keyId}`} className="flex items-center gap-3 px-8 py-4 bg-slate-950 border border-slate-800 text-slate-300 rounded-2xl font-bold hover:bg-slate-900 transition-all">Answer Key</a>
                       </div>
                     )}
                  </div>
@@ -314,12 +319,20 @@ const Generator = () => {
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-0 md:ml-18">
                         {[{ label: 'A', value: q.optionA }, { label: 'B', value: q.optionB }, { label: 'C', value: q.optionC }, { label: 'D', value: q.optionD }].map((opt) => (
-                          <div key={opt.label} className={`p-5 rounded-2xl border transition-all flex items-center gap-4 ${q.correctAnswer === opt.label ? 'bg-sky-500/10 border-sky-500/30 text-sky-200' : 'bg-slate-950/30 border-slate-800/50 text-slate-400'}`}>
-                             <span className="flex-shrink-0 w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center font-black text-slate-500">{opt.label}</span>
+                          <div key={opt.label} className={`p-5 rounded-2xl border transition-all flex items-center gap-4 ${(showAnswers && q.correctAnswer === opt.label) ? 'bg-sky-500/20 border-sky-500/50 text-sky-200' : 'bg-slate-950/30 border-slate-800/50 text-slate-400'}`}>
+                             <span className={`flex-shrink-0 w-10 h-10 rounded-xl border flex items-center justify-center font-black ${(showAnswers && q.correctAnswer === opt.label) ? 'bg-sky-500 border-sky-400 text-white shadow-lg shadow-sky-500/20' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>{opt.label}</span>
                              <span className="text-lg font-medium">{opt.value}</span>
                           </div>
                         ))}
                       </div>
+                      {showAnswers && q.explanation && (
+                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-8 p-8 rounded-2xl bg-sky-500/5 border border-sky-500/20 space-y-3 ml-0 md:ml-18">
+                           <div className="flex items-center gap-2 text-sky-400 text-xs font-black uppercase tracking-widest">
+                              <Info className="w-4 h-4" /> Explanation
+                           </div>
+                           <p className="text-slate-300 leading-relaxed italic">{q.explanation}</p>
+                        </motion.div>
+                      )}
                     </motion.div>
                   ))}
                 </AnimatePresence>

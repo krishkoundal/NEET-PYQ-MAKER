@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Mail, Loader2, RefreshCw, ChevronLeft, Sparkles } from 'lucide-react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import axios from 'axios';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { 
+  ShieldCheck, 
+  Sparkles, 
+  ChevronLeft, 
+  Loader2, 
+  RefreshCw 
+} from 'lucide-react';
+import api from '../api';
 
 const VerifyOTP = () => {
     const [searchParams] = useSearchParams();
@@ -75,7 +81,7 @@ const VerifyOTP = () => {
         setLoading(true);
         setError('');
         try {
-            const res = await axios.post('http://localhost:5000/api/auth/verify-otp', {
+            const res = await api.post('/auth/verify-otp', {
                 email,
                 otp: otpValue
             });
@@ -96,7 +102,7 @@ const VerifyOTP = () => {
         setError('');
         setResendMessage('');
         try {
-            await axios.post('http://localhost:5000/api/auth/resend-otp', { email });
+            await api.post('/auth/resend-otp', { email });
             setResendMessage('A new code has been sent to your email.');
             setTimer(60); // 1 minute cooldown
         } catch (err) {

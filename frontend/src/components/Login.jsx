@@ -1,8 +1,16 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Mail, Lock, ChevronLeft, Github, Chrome, Twitter, Facebook, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { motion } from 'framer-motion';
+import { 
+  Mail, 
+  Lock, 
+  Loader2, 
+  Chrome, 
+  Facebook, 
+  Twitter, 
+  ChevronLeft 
+} from 'lucide-react';
+import api from '../api';
 import loginBg from '../assets/login_bg.png';
 
 const Login = () => {
@@ -25,7 +33,7 @@ const Login = () => {
     setError('');
 
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/login', formData);
+      const res = await api.post('/auth/login', formData);
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
       navigate('/app');
