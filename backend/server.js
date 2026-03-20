@@ -179,6 +179,8 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+app.get('/api/version', (req, res) => res.json({ version: '1.0.1' }));
+
 // Subjects list
 const subjects = ['Physics', 'Chemistry', 'Biology'];
 
