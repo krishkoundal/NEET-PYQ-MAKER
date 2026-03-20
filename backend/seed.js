@@ -18,13 +18,21 @@ const seedDB = async () => {
         console.log('Clearing old data...');
         await Question.deleteMany({});
         
-        console.log(`Inserting ${externalQuestions.length} real/fact-based questions...`);
+        console.log(`Filtering ${externalQuestions.length} real/fact-based questions...`);
+        const validQuestions = externalQuestions.filter(q => {
+            return q.subject && q.chapter && q.question && 
+                   q.optionA && q.optionB && q.optionC && q.optionD && 
+                   q.correctAnswer && q.year && q.difficulty;
+        });
+        
+        console.log(`Skipped ${externalQuestions.length - validQuestions.length} invalid questions.`);
+        console.log(`Inserting ${validQuestions.length} valid questions...`);
         
         const batchSize = 200;
-        for (let i = 0; i < externalQuestions.length; i += batchSize) {
-            const batch = externalQuestions.slice(i, i + batchSize);
+        for (let i = 0; i < validQuestions.length; i += batchSize) {
+            const batch = validQuestions.slice(i, i + batchSize);
             await Question.insertMany(batch);
-            console.log(`Inserted ${Math.min(i + batchSize, externalQuestions.length)} / ${externalQuestions.length}`);
+            console.log(`Inserted ${Math.min(i + batchSize, validQuestions.length)} / ${validQuestions.length}`);
         }
         
         console.log('Database Seeded Successfully!');
