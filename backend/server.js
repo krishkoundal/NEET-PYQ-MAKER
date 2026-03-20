@@ -12,6 +12,10 @@ const User = require('./models/User');
 const os = require('os');
 require('dotenv').config();
 
+console.log('=========================================');
+console.log('   SERVER STARTING - VERSION 1.0.9      ');
+console.log('=========================================');
+
 const app = express();
 
 // Request Logger Middleware
@@ -127,7 +131,7 @@ app.post('/api/auth/register', async (req, res) => {
     })();
 });
 
-app.get('/api/version', (req, res) => res.json({ version: '1.0.7' }));
+app.get('/api/version', (req, res) => res.json({ version: '1.0.9' }));
 
 app.post('/api/auth/verify-otp', async (req, res) => {
     const { email, otp } = req.body;
