@@ -14,19 +14,30 @@ require('dotenv').config();
 
 const app = express();
 
+// Request Logger Middleware
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - Origin: ${req.get('origin')}`);
+    next();
+});
+
 const corsOptions = {
     origin: (origin, callback) => {
+        const frontendUrl = process.env.FRONTEND_URL?.replace(/\/$/, '');
         const allowedOrigins = [
             'http://localhost:5173',
             'http://localhost:5000',
-            process.env.FRONTEND_URL
+            frontendUrl
         ].filter(Boolean);
         
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin || allowedOrigins.includes(origin) || allowedOrigins.some(ao => origin.includes(ao))) {
+        // Allow requests with no origin (like mobile apps) or if the origin is in our allowed list
+        // We compare without trailing slashes to be safe
+        const normalizedOrigin = origin?.replace(/\/$/, '');
+        
+        if (!origin || allowedOrigins.includes(normalizedOrigin)) {
             callback(null, true);
         } else {
-            console.log('Blocked Origin:', origin);
+            console.log('CORS Blocked for Origin:', origin);
+            console.log('Allowed Origins were:', allowedOrigins);
             callback(new Error('Not allowed by CORS'));
         }
     },
@@ -103,6 +114,7 @@ app.post('/api/auth/register', async (req, res) => {
             });
         }
     } catch (err) {
+        console.error('Registration Error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -124,6 +136,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 
         res.json({ message: 'Email verified successfully! You can now login.' });
     } catch (err) {
+        console.error('OTP Verification Error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -165,6 +178,7 @@ app.post('/api/auth/resend-otp', async (req, res) => {
 
         res.json({ message: 'New OTP sent to your email.' });
     } catch (err) {
+        console.error('Resend OTP Error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -182,6 +196,7 @@ app.post('/api/auth/login', async (req, res) => {
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
         res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
     } catch (err) {
+        console.error('Login Error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -248,6 +263,7 @@ app.post('/api/generate-paper', async (req, res) => {
         ]);
         res.json(questions);
     } catch (err) {
+        console.error('Paper Generation Error:', err);
         res.status(500).json({ error: err.message });
     }
 });
