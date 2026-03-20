@@ -133,7 +133,11 @@ app.post('/api/auth/register', async (req, res) => {
     })();
 });
 
-app.get('/api/version', (req, res) => res.json({ version: '1.2.0' }));
+console.log('🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀');
+console.log('   SERVER STARTING - VERSION 2.0.0      ');
+console.log('🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀');
+
+app.get('/api/version', (req, res) => res.json({ version: '2.0.0' }));
 
 app.post('/api/auth/verify-otp', async (req, res) => {
     const { email, otp } = req.body;
