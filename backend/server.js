@@ -13,7 +13,7 @@ const os = require('os');
 require('dotenv').config();
 
 console.log('=========================================');
-console.log('   SERVER STARTING - VERSION 1.0.9      ');
+console.log('   SERVER STARTING - VERSION 1.0.9.1    ');
 console.log('=========================================');
 
 const app = express();
