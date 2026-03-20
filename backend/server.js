@@ -15,7 +15,12 @@ require('dotenv').config();
 const app = express();
 
 const corsOptions = {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: [
+        process.env.FRONTEND_URL,
+        'http://localhost:5173',
+        'https://neet-pyq-maker-1.onrender.com',
+        'https://neet-pyq-maker.onrender.com'
+    ].filter(Boolean),
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
