@@ -69,77 +69,8 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/neet-pyq'
 
 // Auth Routes
 app.post('/api/auth/register', async (req, res) => {
-    const { name, email, password } = req.body;
-    console.log('--- Register Attempt Started (DIAGNOSTIC MODE) ---');
-    console.log('Email:', email);
-
-    // INSTANT RESPONSE to bypass gateway timeouts
-    res.status(201).json({ 
-        message: 'Processing registration... Please check back in a moment.',
-        diagnostic: true
-    });
-
-    // Background work starts here
-    (async () => {
-        try {
-            console.log('BG: Searching for existing user...');
-            let user = await User.findOne({ email });
-            
-            if (user && user.isVerified) {
-                console.log('BG: User already exists and is verified.');
-                return;
-            }
-
-            console.log('BG: Hashing password...');
-            const hashedPassword = await bcrypt.hash(password, 8); // Reduced salt rounds for speed
-
-            const otp = Math.floor(100000 + Math.random() * 900000).toString();
-            const otpExpire = new Date(Date.now() + 10 * 60 * 1000);
-
-            if (user) {
-                console.log('BG: Updating unverified user...');
-                user.name = name;
-                user.password = hashedPassword;
-                user.otp = otp;
-                user.otpExpire = otpExpire;
-            } else {
-                console.log('BG: Creating new user...');
-                user = new User({
-                    name,
-                    email,
-                    password: hashedPassword,
-                    otp,
-                    otpExpire
-                });
-            }
-
-            console.log('BG: Saving to MongoDB...');
-            await user.save();
-            console.log('BG: User saved! OTP:', otp);
-
-            if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-                console.log('BG: Attempting to send email...');
-                const emailHtml = `
-                    <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                        <h2 style="color: #4A90E2; text-align: center;">Verify Your Email</h2>
-                        <p>Hello ${name},</p>
-                        <p>Use this code: ${otp}</p>
-                    </div>
-                `;
-                const mailOptions = {
-                    from: process.env.EMAIL_USER,
-                    to: email,
-                    subject: `${otp} is your verification code`,
-                    html: emailHtml
-                };
-                transporter.sendMail(mailOptions)
-                    .then(() => console.log('BG: Email sent successfully!'))
-                    .catch(err => console.error('BG: Email error:', err));
-            }
-        } catch (err) {
-            console.error('BG: Critical Registration Error:', err);
-        }
-    })();
+    console.log('--- MINIMAL Register Attempt Started ---');
+    return res.status(201).json({ message: 'Minimal Success' });
 });
 
 app.post('/api/auth/verify-otp', async (req, res) => {
