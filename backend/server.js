@@ -118,8 +118,17 @@ app.post('/api/auth/register', async (req, res) => {
                 subject: `${otp} is your NEET PYQ Maker verification code`,
                 html: emailHtml
             };
-            await transporter.sendMail(mailOptions);
-            res.status(201).json({ message: 'User registered. Please check your email for the OTP.' });
+            
+            // Send mail without awaiting so it doesn't block the response
+            transporter.sendMail(mailOptions).catch(err => {
+                console.error('Non-blocking Email Error:', err);
+            });
+
+            console.log('OTP for', email, ':', otp); // Log it so we can find it if email fails
+            res.status(201).json({ 
+                message: 'User registered. Please check your email for the OTP.',
+                otp: otp // Still sending OTP in response for now to ensure user can proceed
+            });
         } else {
             console.log('OTP for', email, ':', otp);
             res.status(201).json({ 
