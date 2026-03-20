@@ -70,24 +70,33 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/neet-pyq'
 // Auth Routes
 app.post('/api/auth/register', async (req, res) => {
     const { name, email, password } = req.body;
+    console.log('--- Register Attempt Started ---');
+    console.log('Email:', email);
     try {
+        console.log('Searching for existing user...');
         let user = await User.findOne({ email });
+        console.log('User found:', !!user);
+        
         if (user && user.isVerified) {
+            console.log('User already exists and is verified.');
             return res.status(400).json({ error: 'User already exists' });
         }
 
+        console.log('Hashing password...');
         const hashedPassword = await bcrypt.hash(password, 10);
+        console.log('Password hashed.');
+
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const otpExpire = new Date(Date.now() + 10 * 60 * 1000);
 
         if (user) {
-            // Update existing unverified user
+            console.log('Updating existing unverified user...');
             user.name = name;
             user.password = hashedPassword;
             user.otp = otp;
             user.otpExpire = otpExpire;
         } else {
-            // Create new user
+            console.log('Creating new user in DB...');
             user = new User({
                 name,
                 email,
@@ -97,7 +106,9 @@ app.post('/api/auth/register', async (req, res) => {
             });
         }
 
+        console.log('Saving user to MongoDB...');
         await user.save();
+        console.log('User saved successfully.');
 
         const emailHtml = `
             <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
