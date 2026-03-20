@@ -153,6 +153,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 
 app.post('/api/auth/resend-otp', async (req, res) => {
     const { email } = req.body;
+    console.log('--- Resend OTP Attempt ---', email);
     try {
         const user = await User.findOne({ email });
         if (!user) return res.status(400).json({ error: 'User not found' });
@@ -163,30 +164,21 @@ app.post('/api/auth/resend-otp', async (req, res) => {
         user.otpExpire = new Date(Date.now() + 10 * 60 * 1000);
         await user.save();
 
-        const emailHtml = `
-            <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                <h2 style="color: #4A90E2; text-align: center;">New Verification Code</h2>
-                <p>Hello ${user.name},</p>
-                <p>You requested a new verification code. Use the code below to verify your email address. This code is valid for 10 minutes.</p>
-                <div style="background: #f4f4f4; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #333; margin: 20px 0; border-radius: 5px;">
-                    ${otp}
-                </div>
-            </div>
-        `;
+        console.log('BG: New OTP Generated for', email, ':', otp);
 
         if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
             const mailOptions = {
                 from: process.env.EMAIL_USER,
                 to: email,
-                subject: `${otp} is your new NEET PYQ Maker code`,
-                html: emailHtml
+                subject: `${otp} is your new verification code`,
+                html: `<p>Your new code is <b>${otp}</b></p>`
             };
-            await transporter.sendMail(mailOptions);
-        } else {
-            console.log('New OTP for', email, ':', otp);
+            transporter.sendMail(mailOptions).catch(err => {
+                console.error('Non-blocking Resend Email Error:', err);
+            });
         }
 
-        res.json({ message: 'New OTP sent to your email.' });
+        res.json({ message: 'New OTP has been generated (check logs if email delayed).' });
     } catch (err) {
         console.error('Resend OTP Error:', err);
         res.status(500).json({ error: err.message });
