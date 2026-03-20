@@ -63,8 +63,10 @@ const transporter = nodemailer.createTransport({
         pass: process.env.EMAIL_PASS
     },
     tls: {
-        rejectUnauthorized: false // Often needed in cloud environments
-    }
+        rejectUnauthorized: false
+    },
+    // Force IPv4 to avoid ENETUNREACH on Render
+    family: 4
 });
 
 console.log('MONGODB_URI present:', !!process.env.MONGODB_URI);
@@ -113,7 +115,7 @@ app.post('/api/auth/register', async (req, res) => {
 
             console.log('BG: Saving to MongoDB...');
             await user.save();
-            console.log('BG: User Saved! OTP:', otp);
+            console.log('🔥🔥 OTP FOR', email, 'IS:', otp, '🔥🔥');
 
             // Email logic ... (already non-blocking)
             if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
@@ -168,7 +170,7 @@ app.post('/api/auth/resend-otp', async (req, res) => {
         user.otpExpire = new Date(Date.now() + 10 * 60 * 1000);
         await user.save();
 
-        console.log('BG: New OTP Generated for', email, ':', otp);
+        console.log('🔥🔥 NEW OTP FOR', email, 'IS:', otp, '🔥🔥');
 
         if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
             const mailOptions = {
@@ -207,7 +209,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-app.get('/api/version', (req, res) => res.json({ version: '1.0.2' }));
+app.get('/api/version', (req, res) => res.json({ version: '1.1.0' }));
 
 // Subjects list
 const subjects = ['Physics', 'Chemistry', 'Biology'];
