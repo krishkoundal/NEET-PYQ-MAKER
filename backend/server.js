@@ -15,12 +15,14 @@ require('dotenv').config();
 const app = express();
 
 const corsOptions = {
-    origin: [
-        process.env.FRONTEND_URL,
-        'http://localhost:5173',
-        'https://neet-pyq-maker-1.onrender.com',
-        'https://neet-pyq-maker.onrender.com'
-    ].filter(Boolean),
+    origin: (origin, callback) => {
+        const allowedPattern = /localhost|onrender\.com/;
+        if (!origin || allowedPattern.test(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
