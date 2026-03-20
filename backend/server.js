@@ -70,87 +70,76 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/neet-pyq'
 // Auth Routes
 app.post('/api/auth/register', async (req, res) => {
     const { name, email, password } = req.body;
-    console.log('--- Register Attempt Started ---');
+    console.log('--- Register Attempt Started (DIAGNOSTIC MODE) ---');
     console.log('Email:', email);
-    try {
-        console.log('Searching for existing user...');
-        let user = await User.findOne({ email });
-        console.log('User found:', !!user);
-        
-        if (user && user.isVerified) {
-            console.log('User already exists and is verified.');
-            return res.status(400).json({ error: 'User already exists' });
-        }
 
-        console.log('Hashing password...');
-        const hashedPassword = await bcrypt.hash(password, 10);
-        console.log('Password hashed.');
+    // INSTANT RESPONSE to bypass gateway timeouts
+    res.status(201).json({ 
+        message: 'Processing registration... Please check back in a moment.',
+        diagnostic: true
+    });
 
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const otpExpire = new Date(Date.now() + 10 * 60 * 1000);
-
-        if (user) {
-            console.log('Updating existing unverified user...');
-            user.name = name;
-            user.password = hashedPassword;
-            user.otp = otp;
-            user.otpExpire = otpExpire;
-        } else {
-            console.log('Creating new user in DB...');
-            user = new User({
-                name,
-                email,
-                password: hashedPassword,
-                otp,
-                otpExpire
-            });
-        }
-
-        console.log('Saving user to MongoDB...');
-        await user.save();
-        console.log('User saved successfully.');
-
-        const emailHtml = `
-            <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                <h2 style="color: #4A90E2; text-align: center;">Verify Your Email</h2>
-                <p>Hello ${name},</p>
-                <p>Thank you for registering at NEET PYQ Maker. Use the code below to verify your email address. This code is valid for 10 minutes.</p>
-                <div style="background: #f4f4f4; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #333; margin: 20px 0; border-radius: 5px;">
-                    ${otp}
-                </div>
-                <p>If you did not request this, please ignore this email.</p>
-            </div>
-        `;
-
-        if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-            const mailOptions = {
-                from: process.env.EMAIL_USER,
-                to: email,
-                subject: `${otp} is your NEET PYQ Maker verification code`,
-                html: emailHtml
-            };
+    // Background work starts here
+    (async () => {
+        try {
+            console.log('BG: Searching for existing user...');
+            let user = await User.findOne({ email });
             
-            // Send mail without awaiting so it doesn't block the response
-            transporter.sendMail(mailOptions).catch(err => {
-                console.error('Non-blocking Email Error:', err);
-            });
+            if (user && user.isVerified) {
+                console.log('BG: User already exists and is verified.');
+                return;
+            }
 
-            console.log('OTP for', email, ':', otp); // Log it so we can find it if email fails
-            res.status(201).json({ 
-                message: 'User registered. Please check your email for the OTP.',
-                otp: otp // Still sending OTP in response for now to ensure user can proceed
-            });
-        } else {
-            console.log('OTP for', email, ':', otp);
-            res.status(201).json({ 
-                message: 'Registration successful!',
-                otp: otp // Sending back for development convenience
-            });
+            console.log('BG: Hashing password...');
+            const hashedPassword = await bcrypt.hash(password, 8); // Reduced salt rounds for speed
+
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            const otpExpire = new Date(Date.now() + 10 * 60 * 1000);
+
+            if (user) {
+                console.log('BG: Updating unverified user...');
+                user.name = name;
+                user.password = hashedPassword;
+                user.otp = otp;
+                user.otpExpire = otpExpire;
+            } else {
+                console.log('BG: Creating new user...');
+                user = new User({
+                    name,
+                    email,
+                    password: hashedPassword,
+                    otp,
+                    otpExpire
+                });
+            }
+
+            console.log('BG: Saving to MongoDB...');
+            await user.save();
+            console.log('BG: User saved! OTP:', otp);
+
+            if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+                console.log('BG: Attempting to send email...');
+                const emailHtml = `
+                    <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                        <h2 style="color: #4A90E2; text-align: center;">Verify Your Email</h2>
+                        <p>Hello ${name},</p>
+                        <p>Use this code: ${otp}</p>
+                    </div>
+                `;
+                const mailOptions = {
+                    from: process.env.EMAIL_USER,
+                    to: email,
+                    subject: `${otp} is your verification code`,
+                    html: emailHtml
+                };
+                transporter.sendMail(mailOptions)
+                    .then(() => console.log('BG: Email sent successfully!'))
+                    .catch(err => console.error('BG: Email error:', err));
+            }
+        } catch (err) {
+            console.error('BG: Critical Registration Error:', err);
         }
-    } catch (err) {
-        console.error('Registration Error:', err);
-        res.status(500).json({ error: err.message });
-    }
+    })();
 });
 
 app.post('/api/auth/verify-otp', async (req, res) => {
