@@ -63,9 +63,15 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/neet-pyq')
-    .then(() => console.log('MongoDB Connected'))
-    .catch(err => console.log(err));
+console.log('MONGODB_URI present:', !!process.env.MONGODB_URI);
+
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/neet-pyq', {
+    serverSelectionTimeoutMS: 5000 // 5 second timeout
+})
+    .then(() => console.log('MongoDB Connected Successfully'))
+    .catch(err => {
+        console.error('MongoDB Connection Error:', err);
+    });
 
 // Auth Routes
 app.post('/api/auth/register', async (req, res) => {
