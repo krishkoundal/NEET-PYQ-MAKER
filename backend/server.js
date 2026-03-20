@@ -69,8 +69,72 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/neet-pyq'
 
 // Auth Routes
 app.post('/api/auth/register', async (req, res) => {
-    console.log('--- MINIMAL Register Attempt Started ---');
-    return res.status(201).json({ message: 'Minimal Success' });
+    const { name, email, password } = req.body;
+    console.log('--- Register Attempt Started ---');
+    console.log('Email:', email);
+    try {
+        let user = await User.findOne({ email });
+        if (user && user.isVerified) {
+            return res.status(400).json({ error: 'User already exists' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpire = new Date(Date.now() + 10 * 60 * 1000);
+
+        if (user) {
+            user.name = name;
+            user.password = hashedPassword;
+            user.otp = otp;
+            user.otpExpire = otpExpire;
+        } else {
+            user = new User({
+                name,
+                email,
+                password: hashedPassword,
+                otp,
+                otpExpire
+            });
+        }
+
+        await user.save();
+
+        const emailHtml = `
+            <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <h2 style="color: #4A90E2; text-align: center;">Verify Your Email</h2>
+                <p>Hello ${name},</p>
+                <p>Your verification code is: <strong>${otp}</strong></p>
+                <p>This code is valid for 10 minutes.</p>
+            </div>
+        `;
+
+        if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: `${otp} is your verification code`,
+                html: emailHtml
+            };
+            
+            // Send mail without awaiting so it doesn't block the response
+            transporter.sendMail(mailOptions).catch(err => {
+                console.error('Non-blocking Email Error:', err);
+            });
+
+            res.status(201).json({ 
+                message: 'User registered. Please check your email for the OTP.',
+                otp: otp // Sending OTP in response as fallback
+            });
+        } else {
+            res.status(201).json({ 
+                message: 'Registration successful!',
+                otp: otp
+            });
+        }
+    } catch (err) {
+        console.error('Registration Error:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.post('/api/auth/verify-otp', async (req, res) => {
