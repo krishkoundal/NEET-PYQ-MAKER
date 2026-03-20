@@ -20,7 +20,7 @@ const seedDB = async () => {
         
         console.log(`Inserting ${externalQuestions.length} real/fact-based questions...`);
         
-        const batchSize = 500;
+        const batchSize = 200;
         for (let i = 0; i < externalQuestions.length; i += batchSize) {
             const batch = externalQuestions.slice(i, i + batchSize);
             await Question.insertMany(batch);

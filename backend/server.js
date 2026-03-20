@@ -16,10 +16,17 @@ const app = express();
 
 const corsOptions = {
     origin: (origin, callback) => {
-        const allowedPattern = /localhost|onrender\.com/;
-        if (!origin || allowedPattern.test(origin)) {
+        const allowedOrigins = [
+            'http://localhost:5173',
+            'http://localhost:5000',
+            process.env.FRONTEND_URL
+        ].filter(Boolean);
+        
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin || allowedOrigins.includes(origin) || allowedOrigins.some(ao => origin.includes(ao))) {
             callback(null, true);
         } else {
+            console.log('Blocked Origin:', origin);
             callback(new Error('Not allowed by CORS'));
         }
     },
