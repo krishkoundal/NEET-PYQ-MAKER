@@ -133,7 +133,7 @@ app.post('/api/auth/register', async (req, res) => {
     })();
 });
 
-app.get('/api/version', (req, res) => res.json({ version: '1.0.9' }));
+app.get('/api/version', (req, res) => res.json({ version: '1.2.0' }));
 
 app.post('/api/auth/verify-otp', async (req, res) => {
     const { email, otp } = req.body;
