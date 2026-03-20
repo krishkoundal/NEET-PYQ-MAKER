@@ -72,21 +72,30 @@ app.post('/api/auth/register', async (req, res) => {
     const { name, email, password } = req.body;
     try {
         let user = await User.findOne({ email });
-        if (user) return res.status(400).json({ error: 'User already exists' });
+        if (user && user.isVerified) {
+            return res.status(400).json({ error: 'User already exists' });
+        }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        
-        // Generate 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const otpExpire = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+        const otpExpire = new Date(Date.now() + 10 * 60 * 1000);
 
-        user = new User({
-            name,
-            email,
-            password: hashedPassword,
-            otp,
-            otpExpire
-        });
+        if (user) {
+            // Update existing unverified user
+            user.name = name;
+            user.password = hashedPassword;
+            user.otp = otp;
+            user.otpExpire = otpExpire;
+        } else {
+            // Create new user
+            user = new User({
+                name,
+                email,
+                password: hashedPassword,
+                otp,
+                otpExpire
+            });
+        }
 
         await user.save();
 
