@@ -1,11 +1,15 @@
+require('dotenv').config();
 const mongoose = require('mongoose');
 const fs = require('fs');
 const Question = require('./models/Question');
 
 const seedRemaining = async () => {
     try {
-        console.log('Connecting to MongoDB (using hardcoded URI for final 192 docs)...');
-        const uri = 'mongodb+srv://krishkoundal006_db_user:krishkoundal01@cluster0.1363tm1.mongodb.net/neet-pyq?retryWrites=true&w=majority&appName=Cluster0';
+        console.log('Connecting to MongoDB (using environment variable for production)...');
+        const uri = process.env.MONGODB_URI;
+        if (!uri) {
+            throw new Error('MONGODB_URI is not defined in environment variables');
+        }
         await mongoose.connect(uri);
         
         const count = await Question.countDocuments();

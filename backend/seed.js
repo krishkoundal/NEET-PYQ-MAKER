@@ -8,10 +8,11 @@ const seedDB = async () => {
         console.log('Connecting to MongoDB...');
         await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/neet-pyq');
         
-        console.log('Reading questions from questions_dump.json...');
-        const dumpPath = './questions_dump.json';
+        const path = require('path');
+        const dumpPath = path.join(__dirname, 'questions_dump_fixed.json');
+        console.log('Reading questions from', dumpPath);
         if (!fs.existsSync(dumpPath)) {
-            throw new Error('questions_dump.json not found! Run extractor first.');
+            throw new Error('questions_dump_fixed.json not found! Run fix_answers.js first.');
         }
         const externalQuestions = JSON.parse(fs.readFileSync(dumpPath, 'utf-8'));
         
