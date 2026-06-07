@@ -72,6 +72,9 @@ const transporter = nodemailer.createTransport({
 
 console.log('MONGODB_URI present:', !!process.env.MONGODB_URI);
 
+// Fix: Set buffer timeout globally BEFORE connecting (default is 10s which causes cold-start failures)
+mongoose.set('bufferTimeoutMS', 60000);
+
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/neet-pyq', {
     serverSelectionTimeoutMS: 60000, // 60s - handles Render free tier cold start (can take 50s+)
     connectTimeoutMS: 60000,
