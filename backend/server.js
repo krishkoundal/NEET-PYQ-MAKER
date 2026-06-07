@@ -125,6 +125,8 @@ app.post('/api/auth/register', async (req, res) => {
             console.log('🔥🔥 OTP FOR', email, 'IS:', otp, '🔥🔥');
 
             // Email logic ... (already non-blocking)
+            console.log('BG: EMAIL_USER present:', !!process.env.EMAIL_USER);
+            console.log('BG: EMAIL_PASS present:', !!process.env.EMAIL_PASS);
             if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
                 const mailOptions = {
                     from: process.env.EMAIL_USER,
@@ -132,7 +134,11 @@ app.post('/api/auth/register', async (req, res) => {
                     subject: `${otp} is your verification code`,
                     html: `<p>Your code is <b>${otp}</b></p>`
                 };
-                transporter.sendMail(mailOptions).catch(err => console.error('BG: Email Error:', err));
+                transporter.sendMail(mailOptions)
+                    .then(() => console.log('BG: ✅ Email sent successfully to', email))
+                    .catch(err => console.error('BG: ❌ Email Error Code:', err.code, '| Message:', err.message));
+            } else {
+                console.error('BG: ❌ EMAIL_USER or EMAIL_PASS missing! Email not sent.');
             }
         } catch (err) {
             console.error('BG: Registration Error:', err);
@@ -145,6 +151,27 @@ console.log('   SERVER STARTING - VERSION 2.0.0      ');
 console.log('🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀');
 
 app.get('/api/version', (req, res) => res.json({ version: '2.0.0' }));
+
+// DEBUG: Test email endpoint
+app.get('/api/test-email', async (req, res) => {
+    console.log('Test email hit. EMAIL_USER:', process.env.EMAIL_USER, '| PASS present:', !!process.env.EMAIL_PASS);
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        return res.status(500).json({ error: 'EMAIL_USER or EMAIL_PASS not set in environment!' });
+    }
+    try {
+        await transporter.verify();
+        const info = await transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: process.env.EMAIL_USER,
+            subject: 'Test OTP Email',
+            html: '<b>Test OTP: 999999</b>'
+        });
+        res.json({ success: true, response: info.response });
+    } catch (err) {
+        console.error('Test Email Error:', err.message);
+        res.status(500).json({ error: err.message, code: err.code });
+    }
+});
 
 app.post('/api/auth/verify-otp', async (req, res) => {
     const { email, otp } = req.body;
