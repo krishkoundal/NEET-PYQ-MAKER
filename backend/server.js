@@ -73,9 +73,10 @@ const transporter = nodemailer.createTransport({
 console.log('MONGODB_URI present:', !!process.env.MONGODB_URI);
 
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/neet-pyq', {
-    serverSelectionTimeoutMS: 30000, // 30 second timeout (handles Render free tier cold start)
-    connectTimeoutMS: 30000,
-    socketTimeoutMS: 30000
+    serverSelectionTimeoutMS: 60000, // 60s - handles Render free tier cold start (can take 50s+)
+    connectTimeoutMS: 60000,
+    socketTimeoutMS: 60000,
+    bufferCommands: true
 })
     .then(() => console.log('MongoDB Connected Successfully'))
     .catch(err => {
@@ -198,9 +199,24 @@ app.post('/api/auth/resend-otp', async (req, res) => {
     }
 });
 
+// Helper: wait for MongoDB to be ready (handles Render cold start)
+const waitForConnection = () => new Promise((resolve, reject) => {
+    const maxWait = 60000; // 60 seconds
+    const interval = 1000; // check every 1s
+    let elapsed = 0;
+    const check = () => {
+        if (mongoose.connection.readyState === 1) return resolve();
+        elapsed += interval;
+        if (elapsed >= maxWait) return reject(new Error('Database connection timeout. Server is waking up, please try again in a few seconds.'));
+        setTimeout(check, interval);
+    };
+    check();
+});
+
 app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     try {
+        await waitForConnection(); // wait for DB if cold starting
         const user = await User.findOne({ email });
         if (!user) return res.status(400).json({ error: 'Invalid credentials' });
         if (!user.isVerified) return res.status(400).json({ error: 'Please verify your email first' });
