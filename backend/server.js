@@ -73,7 +73,9 @@ const transporter = nodemailer.createTransport({
 console.log('MONGODB_URI present:', !!process.env.MONGODB_URI);
 
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/neet-pyq', {
-    serverSelectionTimeoutMS: 5000 // 5 second timeout
+    serverSelectionTimeoutMS: 30000, // 30 second timeout (handles Render free tier cold start)
+    connectTimeoutMS: 30000,
+    socketTimeoutMS: 30000
 })
     .then(() => console.log('MongoDB Connected Successfully'))
     .catch(err => {
